@@ -1,0 +1,63 @@
+# Déploiement SICOFIL (déclenchement manuel ou sur push main)
+# Secrets requis : DEPLOY_HOST, DEPLOY_USER, SSH_PRIVATE_KEY
+# Optionnel : DEPLOY_PATH (défaut: /var/www/sicofil)
+
+name: Deploy SICOFIL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'docs/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via rsync
+        run: |
+          DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+          [ -z "$DEPLOY_PATH" ] && DEPLOY_PATH="/var/www/sicofil"
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'vendor' \
+            --exclude '.env' \
+            --exclude 'storage/logs/*' \
+            --exclude 'storage/framework/cache/*' \
+            --exclude 'storage/framework/sessions/*' \
+            --exclude 'storage/framework/views/*' \
+            ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/
+
+      - name: Post-deploy (composer, migrate, cache)
+        run: |
+          DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+          [ -z "$DEPLOY_PATH" ] && DEPLOY_PATH="/var/www/sicofil"
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd $DEPLOY_PATH && php -v && (composer install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || true) && (php artisan migrate --force 2>/dev/null || true) && (php artisan config:cache 2>/dev/null || true) && (php artisan route:cache 2>/dev/null || true) && (php artisan view:cache 2>/dev/null || true)"
+            php -v
+            composer install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || true
+            php artisan migrate --force 2>/dev/null || true
+            php artisan config:cache 2>/dev/null || true
+            php artisan route:cache 2>/dev/null || true
+            php artisan view:cache 2>/dev/null || true
+          REMOTE
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

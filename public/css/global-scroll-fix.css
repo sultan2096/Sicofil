@@ -1,0 +1,264 @@
+/* CORRECTION GLOBALE POUR LE SCROLL - SICOSA */
+
+/* ===== CORRECTION FONDAMENTALE ===== */
+html, body {
+    height: auto !important;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+}
+
+body {
+    display: block !important;
+    min-height: 100vh;
+    background: #f8fafc;
+    max-height: none !important;
+    position: relative;
+}
+
+/* ===== CORRECTION DES CONTENEURS ===== */
+.main-content, 
+.container-fluid, 
+.container,
+main {
+    width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 1rem;
+    padding-bottom: 2rem;
+    overflow: visible !important;
+    max-height: none !important;
+    position: relative;
+    display: block !important;
+}
+
+/* ===== CORRECTION DES CARTES ===== */
+.card {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.card-body {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+}
+
+/* ===== CORRECTION DES TABLEAUX ===== */
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ===== CORRECTION DES ROWS ET COLS ===== */
+.row {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+}
+
+.col, .col-1, .col-2, .col-3, .col-4, .col-5, .col-6, 
+.col-7, .col-8, .col-9, .col-10, .col-11, .col-12,
+.col-sm, .col-md, .col-lg, .col-xl {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+}
+
+/* ===== CORRECTION DES DASHBOARDS ===== */
+.dashboard-container {
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+.dashboard-content {
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+/* ===== CORRECTION DES PAGES DE BIENVENUE ===== */
+.sicosa-welcome-page {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+.sicosa-welcome-page .container {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+/* ===== CORRECTION DES FORMULAIRES ===== */
+.form-container {
+    overflow: visible !important;
+}
+
+/* ===== CORRECTION DES MODALES ===== */
+.modal-body {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+/* ===== CORRECTION DES NAVIGATIONS ===== */
+.navbar {
+    overflow: visible !important;
+}
+
+/* ===== CORRECTION DES UTILITAIRES ===== */
+.no-scroll {
+    overflow: visible !important;
+}
+
+/* ===== CORRECTION RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .container-fluid {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    
+    .card {
+        overflow: visible !important;
+    }
+}
+
+/* ===== FORCER LE SCROLL VERTICAL ===== */
+* {
+    scroll-behavior: smooth;
+}
+
+/* ===== CORRECTION POUR LES PETITS ÉCRANS ===== */
+@media (max-height: 600px) {
+    body {
+        overflow-y: auto !important;
+    }
+    
+    .container-fluid {
+        overflow: visible !important;
+    }
+}
+
+/* ===== CORRECTION POUR LES GRANDS ÉCRANS ===== */
+@media (min-width: 1200px) {
+    .container-fluid {
+        overflow: visible !important;
+        max-width: none;
+    }
+}
+
+/* ===== CORRECTION POUR LES PAGES VIDES ===== */
+.container-fluid:empty::after {
+    content: "Chargement...";
+    display: block;
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+}
+
+/* ===== VISIBILITÉ DU TABLEAU DE BORD ===== */
+#main-content,
+main.main-content {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
+}
+.dashboard-layout {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* ===== PLACEMENT DU TABLEAU DE BORD (Maire, Gestionnaire, Collecteur) ===== */
+.dashboard-layout {
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 2rem;
+}
+.dashboard-layout .container-fluid {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+@media (min-width: 1400px) {
+    .dashboard-layout {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+/* Espacement cohérent des sections du tableau de bord */
+.dashboard-layout .dashboard-hero,
+.dashboard-layout .stat-card,
+.dashboard-layout .compact-section {
+    margin-bottom: 1rem;
+}
+.dashboard-layout .card {
+    margin-bottom: 1rem;
+}
+.dashboard-layout .row.compact-section {
+    margin-bottom: 1.25rem;
+}
+
+/* ===== FORCER L'AFFICHAGE COMPLET ===== */
+* {
+    max-height: none !important;
+}
+
+/* ===== CORRECTION SPÉCIFIQUE POUR LES INTERFACES ===== */
+/* Interface Maire */
+.maire-dashboard .container-fluid,
+.maire-dashboard .main-content {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+}
+
+/* Interface Gestionnaire */
+.gestionnaire-dashboard .container-fluid,
+.gestionnaire-dashboard .main-content {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+}
+
+/* Interface Collecteur */
+.collecteur-dashboard .container-fluid,
+.collecteur-dashboard .main-content,
+.collecteur-mode,
+.collecteur-mode .container-fluid {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+/* ===== CORRECTION POUR LES NAVIGATIONS ===== */
+.navbar {
+    position: relative !important;
+    z-index: 1000;
+}
+
+/* ===== CORRECTION POUR LES MODALES ===== */
+.modal {
+    overflow: visible !important;
+}
+
+.modal-dialog {
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.modal-body {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+} 

@@ -1,0 +1,181 @@
+# SICOFIL - Stack Multi-Communes
+# Usage: docker-compose up -d
+
+services:
+  # Application Laravel
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sicofil-app
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    networks:
+      - sicofil-network
+    depends_on:
+      - postgres
+      - redis
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: sicofil-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - sicofil-network
+    depends_on:
+      - app
+
+  # PostgreSQL + PostGIS (port 5433 pour eviter conflit avec PostgreSQL Windows sur 5432)
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: sicofil-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sicosa_postgis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sicofil2026}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    networks:
+      - sicofil-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: sicofil-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sicofil-network
+    command: redis-server --appendonly yes
+
+  # MinIO (Stockage objets - photos, reçus)
+  minio:
+    image: minio/minio:latest
+    container_name: sicofil-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9001:9000"
+      - "9002:9001"
+    networks:
+      - sicofil-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # GeoServer (SIG - WMS/WFS)
+  geoserver:
+    image: kartoza/geoserver:2.25.0
+    container_name: sicofil-geoserver
+    restart: unless-stopped
+    environment:
+      GEOSERVER_ADMIN_USER: admin
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD:-geoserver}
+      GEOWEBCACHE_CACHE_DIR: /tmp/geowebcache
+    volumes:
+      - geoserver_data:/opt/geoserver/data_dir
+    ports:
+      - "8081:8080"
+    networks:
+      - sicofil-network
+
+  # Laravel Horizon (Queues)
+  horizon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sicofil-horizon
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: php artisan horizon
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    networks:
+      - sicofil-network
+    depends_on:
+      - app
+      - redis
+
+  # Laravel Reverb (WebSockets)
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sicofil-reverb
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: php artisan reverb:start
+    volumes:
+      - .:/var/www/html
+    networks:
+      - sicofil-network
+    ports:
+      - "8082:8080"
+    depends_on:
+      - app
+      - redis
+
+  # Laravel Scheduler (tâches planifiées)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sicofil-scheduler
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    command: php artisan schedule:work
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    networks:
+      - sicofil-network
+    depends_on:
+      - app
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  geoserver_data:
+
+networks:
+  sicofil-network:
+    driver: bridge

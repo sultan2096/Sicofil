@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion SICOFIL - Aide</title>
+    <style>
+        body { font-family: Segoe UI, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+        h1 { color: #333; }
+        .card { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .card h2 { margin-top: 0; font-size: 1.1rem; color: #0d6efd; }
+        a { color: #0d6efd; }
+        code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+        ul { margin: 8px 0; padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Connexion aux interfaces SICOFIL</h1>
+    <p>Utilisez les liens ci-dessous selon votre profil. Si vous êtes sur le port 8000, remplacez <code>localhost:8000</code> par l’adresse affichée dans votre navigateur.</p>
+
+    <div class="card">
+        <h2>Maire</h2>
+        <p><a href="/maire/login">/maire/login</a></p>
+        <ul>
+            <li>Identifiant : <strong>maire2025</strong></li>
+            <li>Mot de passe : <strong>sicosa2025</strong></li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Gestionnaire</h2>
+        <p><a href="/gestionnaire/login">/gestionnaire/login</a></p>
+        <ul>
+            <li>Identifiant : <strong>gestionnaire01</strong></li>
+            <li>Mot de passe : <strong>gestionnaire2025</strong></li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Collecteur</h2>
+        <p><a href="/collecteur/login">/collecteur/login</a></p>
+        <ul>
+            <li>Identifiant : <strong>collecteur01</strong></li>
+            <li>Mot de passe : <strong>collecteur2025</strong></li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Admin SICOFIL (multi-communes)</h2>
+        <p><a href="/multi-communes/login">/multi-communes/login</a></p>
+        <ul>
+            <li>Identifiant : <strong>admin_sicofil</strong></li>
+            <li>Mot de passe : <strong>sicofil2025</strong></li>
+        </ul>
+    </div>
+
+    <div class="card" style="border: 2px solid #0d6efd;">
+        <h2>Connexion ne marche pas ?</h2>
+        <p>Utilisez la <strong>page de test</strong> (en local) :</p>
+        <p><a href="/test-connexion">/test-connexion</a></p>
+        <p class="small">Elle affiche les comptes en base et permet de se connecter directement. Si aucun compte n’apparaît, exécutez : <code>php artisan db:seed --class=UserSeeder</code></p>
+    </div>
+
+    <p><small>Si la connexion échoue, vérifiez que le serveur tourne (<code>php artisan serve</code>) et que les utilisateurs ont été créés (<code>php artisan db:seed --class=UserSeeder</code>).</small></p>
+</body>
+</html>

@@ -1,0 +1,75 @@
+/* CORRECTION DE LA TAILLE DES POLICES - SICOSA */
+
+/* ===== CORRECTION GLOBALE DES TEXTES ===== */
+body {
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+}
+
+/* ===== CORRECTION DES TITRES ===== */
+h1, .h1 { font-size: 2.2rem !important; font-weight: 600 !important; }
+h2, .h2 { font-size: 1.8rem !important; font-weight: 600 !important; }
+h3, .h3 { font-size: 1.5rem !important; font-weight: 600 !important; }
+h4, .h4 { font-size: 1.3rem !important; font-weight: 600 !important; }
+h5, .h5 { font-size: 1.1rem !important; font-weight: 600 !important; }
+h6, .h6 { font-size: 1rem !important; font-weight: 600 !important; }
+
+/* ===== CORRECTION DES CARTES ===== */
+.card-title { font-size: 1.4rem !important; font-weight: 600 !important; }
+.card-header h3 { font-size: 1.4rem !important; font-weight: 600 !important; }
+
+/* ===== CORRECTION DES TABLEAUX ===== */
+.table { font-size: 1rem !important; }
+.table th { font-size: 1.1rem !important; font-weight: 600 !important; padding: 12px 8px !important; }
+.table td { font-size: 1rem !important; padding: 12px 8px !important; vertical-align: middle !important; }
+.table tbody tr { font-size: 1rem !important; }
+
+/* ===== CORRECTION DES BADGES ===== */
+.badge { font-size: 0.9rem !important; padding: 6px 10px !important; font-weight: 500 !important; }
+.badge.bg-primary, .badge.bg-success, .badge.bg-info, .badge.bg-secondary { 
+    font-size: 0.9rem !important; padding: 6px 10px !important; 
+}
+
+/* ===== CORRECTION DES BOUTONS ===== */
+.btn { font-size: 1rem !important; padding: 8px 16px !important; font-weight: 500 !important; }
+.btn-sm { font-size: 0.95rem !important; padding: 6px 12px !important; }
+.btn-lg { font-size: 1.1rem !important; padding: 12px 24px !important; }
+
+/* ===== CORRECTION DES FORMULAIRES ===== */
+.form-control { font-size: 1rem !important; padding: 10px 12px !important; }
+.form-label { font-size: 1rem !important; font-weight: 500 !important; }
+.form-select { font-size: 1rem !important; padding: 10px 12px !important; }
+
+/* ===== CORRECTION DES ALERTES ===== */
+.alert { font-size: 1rem !important; padding: 12px 16px !important; }
+.alert-success, .alert-danger, .alert-warning, .alert-info { font-size: 1rem !important; }
+
+/* ===== CORRECTION DES NAVIGATIONS ===== */
+.nav-link { font-size: 1rem !important; font-weight: 500 !important; }
+.navbar-brand { font-size: 1.3rem !important; font-weight: 600 !important; }
+
+/* ===== CORRECTION DES ICÔNES ===== */
+.fas, .fa, .far, .fab { font-size: 1.1em !important; }
+.fa-2x { font-size: 2rem !important; }
+.fa-3x { font-size: 3rem !important; }
+
+/* ===== CORRECTION DES TEXTES MUTÉS ===== */
+.text-muted { font-size: 0.95rem !important; }
+.small { font-size: 0.9rem !important; }
+
+/* ===== CORRECTION RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .table { font-size: 0.95rem !important; }
+    .table th { font-size: 1rem !important; }
+    .table td { font-size: 0.95rem !important; }
+    .btn { font-size: 0.95rem !important; }
+    .card-title { font-size: 1.2rem !important; }
+}
+
+@media (max-width: 576px) {
+    .table { font-size: 0.9rem !important; }
+    .table th { font-size: 0.95rem !important; }
+    .table td { font-size: 0.9rem !important; }
+    .btn { font-size: 0.9rem !important; }
+    .card-title { font-size: 1.1rem !important; }
+} 

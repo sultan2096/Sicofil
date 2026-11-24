@@ -1,0 +1,762 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Paiement;
+use App\Models\UniteCommerciale;
+use App\Models\Log;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+
+class PaiementController extends Controller
+{
+    /**
+     * Display a listing of paiements.
+     */
+    public function index(Request $request)
+    {
+        $query = Paiement::with(['collecteur', 'unite']);
+
+        // Filtrer par zone et collecteur pour les collecteurs
+        if (auth()->user()->role === 'collecteur') {
+            $query->byZone(auth()->user()->zone_id)
+                  ->where('collecteur_id', auth()->id());
+        }
+
+        // Filtres
+        if ($request->filled('date_debut')) {
+            $query->where('date_paiement', '>=', $request->date_debut);
+        }
+
+        if ($request->filled('date_fin')) {
+            $query->where('date_paiement', '<=', $request->date_fin);
+        }
+
+        if ($request->filled('mode_paiement')) {
+            $query->byModePaiement($request->mode_paiement);
+        }
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->statut);
+        }
+
+        if ($request->filled('collecteur_id') && auth()->user()->role !== 'collecteur') {
+            $query->byCollecteur($request->collecteur_id);
+        }
+
+        if ($request->filled('zone_id') && auth()->user()->role !== 'collecteur') {
+            $query->byZone($request->zone_id);
+        }
+
+        $paiements = $query->orderBy('date_paiement', 'desc')->paginate(50);
+        
+        // Gérer les paramètres de redirection après finalisation
+        $paymentFinalized = $request->get('payment_finalized') === 'true';
+        $paymentId = $request->get('payment_id');
+        
+        return view('paiements.index', compact('paiements', 'paymentFinalized', 'paymentId'));
+    }
+
+    /**
+     * Show the form for creating a new paiement.
+     */
+    public function create(Request $request)
+    {
+        // Autoriser les gestionnaires et les collecteurs à créer des paiements
+        if (!in_array(auth()->user()->role, ['gestionnaire', 'collecteur'])) {
+            abort(403, 'Accès non autorisé. Seuls les gestionnaires et collecteurs peuvent créer des paiements.');
+        }
+
+        // Pour les collecteurs, afficher seulement les unités de leur zone
+        if (auth()->user()->role === 'collecteur') {
+            $unites = UniteCommerciale::where('zone_id', auth()->user()->zone_id)
+                ->actif()
+                ->with(['taxe', 'zone'])
+                ->orderBy('nom_proprietaire')
+                ->get();
+        } else {
+            $unites = UniteCommerciale::actif()
+                ->with(['taxe', 'zone'])
+                ->orderBy('nom_proprietaire')
+                ->get();
+        }
+
+        // Si on vient d'un recensement, pré-sélectionner l'unité
+        $selectedUniteId = $request->get('unite_id');
+        $selectedUnite = null;
+        if ($selectedUniteId) {
+            $selectedUnite = UniteCommerciale::with(['taxe', 'zone'])->find($selectedUniteId);
+            // Vérifier que le collecteur a accès à cette unité
+            if (auth()->user()->role === 'collecteur' && $selectedUnite && $selectedUnite->zone_id !== auth()->user()->zone_id) {
+                $selectedUnite = null;
+                $selectedUniteId = null;
+            }
+        }
+
+        return view('paiements.create', compact('unites', 'selectedUnite', 'selectedUniteId'));
+    }
+
+    /**
+     * Store a newly created paiement in storage.
+     */
+    public function store(Request $request)
+    {
+        // Autoriser les gestionnaires et les collecteurs à créer des paiements
+        if (!in_array(auth()->user()->role, ['gestionnaire', 'collecteur'])) {
+            abort(403, 'Accès non autorisé. Seuls les gestionnaires et collecteurs peuvent créer des paiements.');
+        }
+
+        $validated = $request->validate([
+            'unite_id' => 'required|exists:unites_commerciales,id',
+            'montant' => 'required|numeric|min:0',
+            'montant_avance' => 'nullable|numeric|min:0',
+            'montant_restant' => 'nullable|numeric|min:0',
+            'date_paiement' => 'required|date|before_or_equal:today',
+            'mode_paiement' => 'required|in:cash,wave,orange_money',
+            'reference_transaction' => 'nullable|string|max:255',
+            'commentaire' => 'nullable|string|max:500',
+            // Champs de géolocalisation pour les collecteurs
+            'payment_latitude' => 'nullable|numeric|between:-90,90',
+            'payment_longitude' => 'nullable|numeric|between:-180,180',
+            'payment_accuracy' => 'nullable|numeric|min:0'
+        ]);
+
+        // Vérifier que l'unité est dans la zone du collecteur
+        if (auth()->user()->role === 'collecteur') {
+            $unite = UniteCommerciale::find($validated['unite_id']);
+            if ($unite->zone_id !== auth()->user()->zone_id) {
+                abort(403, 'Cette unité commerciale n\'est pas dans votre zone.');
+            }
+        }
+
+        // Calculer le statut selon le montant restant
+        $montantAvance = $validated['montant_avance'] ?? 0;
+        $montantRestant = $validated['montant_restant'] ?? 0;
+        $statut = $montantRestant <= 0 ? 'valide' : 'en_attente';
+
+        $paiementData = [
+            'collecteur_id' => auth()->id(),
+            'unite_id' => $validated['unite_id'],
+            'montant' => $validated['montant'],
+            'montant_avance' => $montantAvance,
+            'montant_restant' => $montantRestant,
+            'date_paiement' => $validated['date_paiement'],
+            'mode_paiement' => $validated['mode_paiement'],
+            'reference_transaction' => $validated['reference_transaction'],
+            'commentaire' => $validated['commentaire'],
+            'statut' => $statut
+        ];
+
+        // Ajouter les données de géolocalisation si disponibles (pour les collecteurs)
+        if (auth()->user()->role === 'collecteur' && isset($validated['payment_latitude'])) {
+            // Vérifier si les colonnes existent dans la base de données
+            try {
+                $hasGeoColumns = \DB::select("
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                      AND table_name = 'paiements' 
+                      AND column_name = 'payment_latitude'
+                ");
+                
+                if ($hasGeoColumns[0]->count > 0) {
+                    $paiementData['payment_latitude'] = $validated['payment_latitude'];
+                    $paiementData['payment_longitude'] = $validated['payment_longitude'];
+                    $paiementData['payment_accuracy'] = $validated['payment_accuracy'];
+                    $paiementData['payment_method'] = 'GPS'; // Par défaut GPS, peut être modifié selon le contexte
+                } else {
+                    // Si les colonnes n'existent pas encore, continuer sans géolocalisation
+                    \Log::warning('Colonnes de géolocalisation non disponibles - Migration requise');
+                }
+            } catch (\Exception $e) {
+                // En cas d'erreur de base de données, continuer sans géolocalisation
+                \Log::warning('Erreur lors de la vérification des colonnes de géolocalisation: ' . $e->getMessage());
+            }
+        }
+
+        $paiement = Paiement::create($paiementData);
+
+        Log::createLog('payment', [
+            'paiement_id' => $paiement->id,
+            'unite_id' => $paiement->unite_id,
+            'montant' => $paiement->montant,
+            'mode' => $paiement->mode_paiement
+        ]);
+
+        // Rediriger automatiquement vers la page des paiements pour les collecteurs
+        if (auth()->user()->role === 'collecteur') {
+            return redirect()->route('collecteur.paiements.index')
+                ->with('success', 'Paiement enregistré avec succès.')
+                ->with('paiement_id', $paiement->id)
+                ->with('show_ticket_option', true);
+        }
+        
+        // Pour les autres rôles, comportement habituel
+        return redirect()->route('paiements.index')
+            ->with('success', 'Paiement enregistré avec succès.')
+            ->with('paiement_id', $paiement->id)
+            ->with('show_ticket_option', true);
+    }
+
+    /**
+     * Display the specified paiement.
+     */
+    public function show(Paiement $paiement)
+    {
+        // Vérifier l'accès pour les collecteurs
+        if (auth()->user()->role === 'collecteur' && $paiement->collecteur_id !== auth()->id()) {
+            abort(403, 'Accès non autorisé.');
+        }
+
+        return view('paiements.show', compact('paiement'));
+    }
+
+    /**
+     * Generate a payment receipt ticket.
+     */
+    public function ticket(Paiement $paiement)
+    {
+        // Vérifier l'accès pour les collecteurs
+        if (auth()->user()->role === 'collecteur' && $paiement->collecteur_id !== auth()->id()) {
+            abort(403, 'Accès non autorisé.');
+        }
+
+        // Charger les relations nécessaires
+        $paiement->load(['unite.zone', 'collecteur.zone']);
+
+        // Générer les données pour le QR code
+        $qrData = $this->generateQRData($paiement);
+
+        return view('paiements.ticket', compact('paiement', 'qrData'));
+    }
+
+    /**
+     * Generate QR code data for payment receipt
+     */
+    private function generateQRData(Paiement $paiement)
+    {
+        $data = [
+            'type' => 'SICOSA_RECU',
+            'id' => str_pad($paiement->id, 6, '0', STR_PAD_LEFT),
+            'date' => $paiement->date_paiement->format('d/m/Y H:i'),
+            'montant' => $paiement->montant,
+            'mode' => $paiement->mode_paiement,
+            'unite' => $paiement->unite->nom_proprietaire ?? 'N/A',
+            'zone' => $paiement->unite->zone->nom ?? 'N/A',
+            'collecteur' => $paiement->collecteur->name ?? 'N/A',
+            'reference' => $paiement->reference_transaction ?? 'N/A',
+            'verification' => url('/paiements/' . $paiement->id . '/verify')
+        ];
+
+        return json_encode($data);
+    }
+
+    /**
+     * Verify payment authenticity via QR code
+     */
+    public function verify(Paiement $paiement)
+    {
+        // Cette route est publique pour permettre la vérification
+        $paiement->load(['unite.zone', 'collecteur.zone']);
+
+        return view('paiements.verify', compact('paiement'));
+    }
+
+    /**
+     * API endpoint to verify QR code data
+     */
+    public function verifyQR(Paiement $paiement)
+    {
+        $paiement->load(['unite.zone', 'collecteur.zone']);
+
+        return response()->json([
+            'valid' => true,
+            'status' => $paiement->statut,
+            'receipt_number' => str_pad($paiement->id, 6, '0', STR_PAD_LEFT),
+            'payment_date' => $paiement->date_paiement->format('d/m/Y H:i'),
+            'amount' => $paiement->montant,
+            'payment_mode' => $paiement->mode_paiement,
+            'unit_owner' => $paiement->unite->nom_proprietaire,
+            'zone' => $paiement->unite->zone->nom ?? 'Non définie',
+            'collector' => $paiement->collecteur->name,
+            'reference' => $paiement->reference_transaction,
+            'verification_url' => route('paiements.verify', $paiement),
+            'verified_at' => now()->format('d/m/Y H:i')
+        ]);
+    }
+
+    /**
+     * Cancel a paiement.
+     */
+    public function cancel(Paiement $paiement)
+    {
+        // Seuls les admins et maires peuvent annuler
+        if (auth()->user()->role === 'collecteur') {
+            abort(403, 'Vous n\'avez pas l\'autorisation d\'annuler des paiements.');
+        }
+
+        $paiement->update(['statut' => 'annule']);
+
+        Log::createLog('cancel_payment', [
+            'paiement_id' => $paiement->id,
+            'unite_id' => $paiement->unite_id,
+            'montant' => $paiement->montant
+        ]);
+
+        return redirect()->route('paiements.index')
+            ->with('success', 'Paiement annulé avec succès.');
+    }
+
+    /**
+     * Show the form to add additional payment to complete a partial payment.
+     */
+    public function addPayment(Paiement $paiement)
+    {
+        // Vérifier l'accès pour les collecteurs
+        if (auth()->user()->role === 'collecteur' && $paiement->collecteur_id !== auth()->id()) {
+            abort(403, 'Accès non autorisé.');
+        }
+
+        // Vérifier que le paiement peut être complété
+        if ($paiement->statut !== 'en_attente' || $paiement->montant_restant <= 0) {
+            return redirect()->route('paiements.show', $paiement)
+                ->with('error', 'Ce paiement ne peut pas être complété.');
+        }
+
+        $paiement->load(['unite.zone', 'collecteur']);
+
+        return view('paiements.add-payment', compact('paiement'));
+    }
+
+    /**
+     * Store additional payment to complete a partial payment.
+     */
+    public function storeAdditionalPayment(Request $request, Paiement $paiement)
+    {
+        // Vérifier l'accès pour les collecteurs
+        if (auth()->user()->role === 'collecteur' && $paiement->collecteur_id !== auth()->id()) {
+            abort(403, 'Accès non autorisé.');
+        }
+
+        // Vérifier que le paiement peut être complété
+        if ($paiement->statut !== 'en_attente' || $paiement->montant_restant <= 0) {
+            return redirect()->route('paiements.show', $paiement)
+                ->with('error', 'Ce paiement ne peut pas être complété.');
+        }
+
+        $validated = $request->validate([
+            'montant_supplementaire' => 'required|numeric|min:0.01|max:' . $paiement->montant_restant,
+            'mode_paiement' => 'required|in:cash,cheque,virement,mobile_money',
+            'reference_transaction' => 'nullable|string|max:255',
+            'commentaire' => 'nullable|string|max:500',
+            // Champs de géolocalisation pour les collecteurs
+            'payment_latitude' => 'nullable|numeric|between:-90,90',
+            'payment_longitude' => 'nullable|numeric|between:-180,180',
+            'payment_accuracy' => 'nullable|numeric|min:0'
+        ]);
+
+        // Calculer les nouveaux montants
+        $nouveauMontantAvance = $paiement->montant_avance + $validated['montant_supplementaire'];
+        $nouveauMontantRestant = $paiement->montant_restant - $validated['montant_supplementaire'];
+
+        // Mettre à jour le paiement
+        $updateData = [
+            'montant_avance' => $nouveauMontantAvance,
+            'montant_restant' => $nouveauMontantRestant,
+            'statut' => $nouveauMontantRestant <= 0 ? 'valide' : 'en_attente',
+            'updated_at' => now()
+        ];
+
+        // Ajouter les données de géolocalisation si disponibles (pour les collecteurs)
+        if (auth()->user()->role === 'collecteur' && isset($validated['payment_latitude'])) {
+            try {
+                $hasGeoColumns = \DB::select("
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                      AND table_name = 'paiements' 
+                      AND column_name = 'payment_latitude'
+                ");
+                
+                if ($hasGeoColumns[0]->count > 0) {
+                    $updateData['payment_latitude'] = $validated['payment_latitude'];
+                    $updateData['payment_longitude'] = $validated['payment_longitude'];
+                    $updateData['payment_accuracy'] = $validated['payment_accuracy'];
+                    $updateData['payment_method'] = 'GPS';
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Erreur lors de la vérification des colonnes de géolocalisation: ' . $e->getMessage());
+            }
+        }
+
+        $paiement->update($updateData);
+
+        // Créer un log pour le paiement supplémentaire
+        Log::createLog('additional_payment', [
+            'paiement_id' => $paiement->id,
+            'unite_id' => $paiement->unite_id,
+            'montant_supplementaire' => $validated['montant_supplementaire'],
+            'nouveau_montant_avance' => $nouveauMontantAvance,
+            'nouveau_montant_restant' => $nouveauMontantRestant,
+            'mode_paiement' => $validated['mode_paiement'],
+            'reference' => $validated['reference_transaction'],
+            'commentaire' => $validated['commentaire']
+        ]);
+
+        // Message de succès
+        $message = $nouveauMontantRestant <= 0 
+            ? 'Paiement complété avec succès ! Le montant total a été payé.'
+            : 'Paiement supplémentaire enregistré. Montant restant : ' . number_format($nouveauMontantRestant, 0, ',', ' ') . ' FCFA';
+
+        // Rediriger vers la liste des paiements avec paramètres pour mise à jour automatique
+        if (auth()->user()->role === 'collecteur') {
+            return redirect()->route('collecteur.paiements.index', [
+                'payment_finalized' => 'true',
+                'payment_id' => $paiement->id
+            ])->with('success', $message);
+        } else {
+            return redirect()->route('paiements.index', [
+                'payment_finalized' => 'true',
+                'payment_id' => $paiement->id
+            ])->with('success', $message);
+        }
+    }
+
+    /**
+     * Export paiements to CSV
+     */
+    public function export(Request $request)
+    {
+        $query = Paiement::with(['collecteur', 'unite.zone']);
+
+        // Appliquer les mêmes filtres que pour l'index
+        if (auth()->user()->role === 'collecteur') {
+            $query->byZone(auth()->user()->zone_id);
+        }
+
+        if ($request->filled('date_debut')) {
+            $query->where('date_paiement', '>=', $request->date_debut);
+        }
+
+        if ($request->filled('date_fin')) {
+            $query->where('date_paiement', '<=', $request->date_fin);
+        }
+
+        if ($request->filled('mode_paiement')) {
+            $query->byModePaiement($request->mode_paiement);
+        }
+
+        if ($request->filled('collecteur_id') && auth()->user()->role !== 'collecteur') {
+            $query->byCollecteur($request->collecteur_id);
+        }
+
+        if ($request->filled('zone_id') && auth()->user()->role !== 'collecteur') {
+            $query->byZone($request->zone_id);
+        }
+
+        $paiements = $query->orderBy('date_paiement', 'desc')->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="paiements_' . date('Y-m-d') . '.csv"',
+        ];
+
+        // Vérifier s'il y a des paiements à exporter
+        if ($paiements->isEmpty()) {
+            return redirect()->back()->with('error', 'Aucun paiement trouvé pour la période sélectionnée.');
+        }
+
+        $callback = function() use ($paiements) {
+            $file = fopen('php://output', 'w');
+            
+            // Ajouter BOM UTF-8 pour Excel
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // En-têtes
+            fputcsv($file, ['Date', 'Référence', 'Collecteur', 'Unité Commerciale', 'Zone', 'Montant (FCFA)', 'Mode de paiement', 'Statut'], ';');
+            
+            // Données
+            foreach ($paiements as $paiement) {
+                fputcsv($file, [
+                    $paiement->date_paiement->format('d/m/Y'),
+                    $paiement->reference_transaction ?: 'N/A',
+                    $paiement->collecteur ? $paiement->collecteur->name : 'N/A',
+                    $paiement->unite ? $paiement->unite->nom_proprietaire : 'N/A',
+                    ($paiement->unite && $paiement->unite->zone) ? $paiement->unite->zone->nom : 'N/A',
+                    number_format($paiement->montant, 0, ',', ' '),
+                    ucfirst(str_replace('_', ' ', $paiement->mode_paiement)),
+                    ucfirst($paiement->statut)
+                ], ';');
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Report an error in payment collection
+     */
+    public function reportError(Request $request, Paiement $paiement)
+    {
+        $validated = $request->validate([
+            'error_type' => 'required|in:wrong_amount,wrong_unit,wrong_date,duplicate,other',
+            'description' => 'required|string|max:500',
+            'proposed_correction' => 'nullable|string|max:500'
+        ]);
+
+        // Changer le statut du paiement en "correction_demandee"
+        $paiement->update(['statut' => 'correction_demandee']);
+
+        // Créer un log détaillé
+        Log::createLog('payment_error_reported', [
+            'paiement_id' => $paiement->id,
+            'error_type' => $validated['error_type'],
+            'description' => $validated['description'],
+            'proposed_correction' => $validated['proposed_correction'],
+            'reported_by' => auth()->user()->id,
+            'original_amount' => $paiement->montant,
+            'original_date' => $paiement->date_paiement,
+            'unite_id' => $paiement->unite_id
+        ]);
+
+        return redirect()->route('paiements.index')
+            ->with('success', 'Erreur signalée avec succès. Le gestionnaire sera notifié pour correction.');
+    }
+
+    /**
+     * View correction requests (for managers)
+     */
+    public function correctionRequests()
+    {
+        if (auth()->user()->role !== 'gestionnaire') {
+            abort(403, 'Accès non autorisé');
+        }
+
+        $correctionRequests = Paiement::where('statut', 'correction_demandee')
+            ->with(['collecteur', 'unite'])
+            ->orderBy('updated_at', 'desc')
+            ->paginate(20);
+
+        // Récupérer les logs d'erreurs correspondants
+        $errorLogs = Log::where('action', 'payment_error_reported')
+            ->whereIn('details->paiement_id', $correctionRequests->pluck('id'))
+            ->latest()
+            ->get()
+            ->keyBy('details.paiement_id');
+
+        return view('paiements.correction-requests', compact('correctionRequests', 'errorLogs'));
+    }
+
+    /**
+     * Resolve a correction request
+     */
+    public function resolveCorrection(Request $request, Paiement $paiement)
+    {
+        if (auth()->user()->role !== 'gestionnaire') {
+            abort(403, 'Accès non autorisé');
+        }
+
+        $validated = $request->validate([
+            'action' => 'required|in:approve_correction,reject_correction,delete_payment',
+            'resolution_note' => 'nullable|string|max:500',
+            'corrected_amount' => 'nullable|numeric|min:0',
+            'corrected_date' => 'nullable|date'
+        ]);
+
+        switch ($validated['action']) {
+            case 'approve_correction':
+                // Appliquer les corrections
+                $updateData = ['statut' => 'valide'];
+                if ($validated['corrected_amount']) {
+                    $updateData['montant'] = $validated['corrected_amount'];
+                }
+                if ($validated['corrected_date']) {
+                    $updateData['date_paiement'] = $validated['corrected_date'];
+                }
+                $paiement->update($updateData);
+                
+                Log::createLog('payment_correction_approved', [
+                    'paiement_id' => $paiement->id,
+                    'resolution_note' => $validated['resolution_note'],
+                    'corrected_by' => auth()->user()->id
+                ]);
+                
+                $message = 'Correction approuvée et appliquée avec succès.';
+                break;
+
+            case 'reject_correction':
+                $paiement->update(['statut' => 'valide']);
+                
+                Log::createLog('payment_correction_rejected', [
+                    'paiement_id' => $paiement->id,
+                    'resolution_note' => $validated['resolution_note'],
+                    'rejected_by' => auth()->user()->id
+                ]);
+                
+                $message = 'Demande de correction rejetée. Le paiement reste valide.';
+                break;
+
+            case 'delete_payment':
+                Log::createLog('payment_deleted_after_error', [
+                    'paiement_id' => $paiement->id,
+                    'resolution_note' => $validated['resolution_note'],
+                    'deleted_by' => auth()->user()->id,
+                    'original_amount' => $paiement->montant
+                ]);
+                
+                $paiement->delete();
+                $message = 'Paiement supprimé suite à l\'erreur signalée.';
+                break;
+        }
+
+        return redirect()->route('paiements.correction-requests')
+            ->with('success', $message);
+    }
+
+    /**
+     * Approve a correction request
+     */
+    public function approveCorrection(Request $request, Paiement $paiement)
+    {
+        if (auth()->user()->role !== 'gestionnaire') {
+            abort(403, 'Accès non autorisé');
+        }
+
+        $validated = $request->validate([
+            'correction_note' => 'nullable|string|max:500',
+            'corrected_amount' => 'nullable|numeric|min:0',
+            'corrected_date' => 'nullable|date|before_or_equal:today'
+        ]);
+
+        // Préparer les données de mise à jour
+        $updateData = ['statut' => 'valide'];
+        $corrections = [];
+
+        // Appliquer la correction du montant si fournie
+        if ($validated['corrected_amount'] && $validated['corrected_amount'] != $paiement->montant) {
+            $updateData['montant'] = $validated['corrected_amount'];
+            $corrections[] = "Montant corrigé : {$paiement->montant} FCFA → {$validated['corrected_amount']} FCFA";
+        }
+
+        // Appliquer la correction de la date si fournie
+        if ($validated['corrected_date'] && $validated['corrected_date'] != $paiement->date_paiement->format('Y-m-d')) {
+            $updateData['date_paiement'] = $validated['corrected_date'];
+            $corrections[] = "Date corrigée : {$paiement->date_paiement->format('d/m/Y')} → " . \Carbon\Carbon::parse($validated['corrected_date'])->format('d/m/Y');
+        }
+
+        // Mettre à jour le paiement
+        $paiement->update($updateData);
+        
+        // Créer le log avec les détails des corrections
+        Log::createLog('payment_correction_approved', [
+            'paiement_id' => $paiement->id,
+            'correction_note' => $validated['correction_note'],
+            'corrections_applied' => $corrections,
+            'approved_by' => auth()->user()->id,
+            'original_amount' => $paiement->getOriginal('montant'),
+            'new_amount' => $paiement->montant,
+            'original_date' => $paiement->getOriginal('date_paiement'),
+            'new_date' => $paiement->date_paiement
+        ]);
+        
+        $message = 'Correction approuvée et appliquée avec succès.';
+        if (!empty($corrections)) {
+            $message .= ' Modifications : ' . implode(', ', $corrections);
+        }
+        
+        return redirect()->route('paiements.correction-requests')
+            ->with('success', $message);
+    }
+
+    /**
+     * Reject a correction request
+     */
+    public function rejectCorrection(Request $request, Paiement $paiement)
+    {
+        if (auth()->user()->role !== 'gestionnaire') {
+            abort(403, 'Accès non autorisé');
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => 'required|string|max:500'
+        ]);
+
+        // Remettre le paiement en statut "valide"
+        $paiement->update(['statut' => 'valide']);
+        
+        Log::createLog('payment_correction_rejected', [
+            'paiement_id' => $paiement->id,
+            'rejection_reason' => $validated['rejection_reason'],
+            'rejected_by' => auth()->user()->id,
+            'original_amount' => $paiement->montant
+        ]);
+        
+        return redirect()->route('paiements.correction-requests')
+            ->with('success', 'Demande de correction rejetée. Le paiement reste valide.');
+    }
+
+    /**
+     * Delete an erroneous payment
+     */
+    public function deleteErroneous(Paiement $paiement)
+    {
+        if (auth()->user()->role !== 'gestionnaire') {
+            abort(403, 'Accès non autorisé');
+        }
+
+        // Log avant suppression
+        Log::createLog('payment_deleted_after_error', [
+            'paiement_id' => $paiement->id,
+            'deleted_by' => auth()->user()->id,
+            'original_amount' => $paiement->montant,
+            'original_date' => $paiement->date_paiement,
+            'unite_id' => $paiement->unite_id,
+            'collecteur_id' => $paiement->collecteur_id
+        ]);
+        
+        // Supprimer le paiement
+        $paiement->delete();
+        
+        return redirect()->route('paiements.correction-requests')
+            ->with('success', 'Paiement erroné supprimé définitivement.');
+    }
+
+    /**
+     * Annuler un paiement (pour les maires)
+     */
+    public function cancel(Paiement $paiement)
+    {
+        // Vérifier que l'utilisateur est un maire
+        if (auth()->user()->role !== 'maire') {
+            abort(403, 'Seuls les maires peuvent annuler des paiements.');
+        }
+
+        // Vérifier que le paiement peut être annulé
+        if ($paiement->statut !== 'en_attente') {
+            return redirect()->route('paiements.show', $paiement)
+                ->with('error', 'Seuls les paiements en attente peuvent être annulés.');
+        }
+
+        // Mettre à jour le statut du paiement
+        $paiement->update([
+            'statut' => 'annule',
+            'updated_at' => now()
+        ]);
+
+        // Créer un log pour l'annulation
+        Log::createLog('payment_cancelled', [
+            'paiement_id' => $paiement->id,
+            'unite_id' => $paiement->unite_id,
+            'montant' => $paiement->montant,
+            'montant_avance' => $paiement->montant_avance,
+            'montant_restant' => $paiement->montant_restant,
+            'cancelled_by' => auth()->user()->name,
+            'cancelled_at' => now()
+        ]);
+
+        return redirect()->route('paiements.show', $paiement)
+            ->with('success', 'Paiement annulé avec succès.');
+    }
+} 

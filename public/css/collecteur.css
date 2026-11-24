@@ -1,0 +1,426 @@
+/* Styles spécifiques pour l'interface collecteur - Thème moderne */
+
+/* Variables de couleurs */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    --accent-color: #ff6b6b;
+    --text-dark: #2c3e50;
+    --shadow-light: 0 4px 15px rgba(0,0,0,0.1);
+    --shadow-medium: 0 8px 25px rgba(0,0,0,0.15);
+    --shadow-heavy: 0 12px 35px rgba(0,0,0,0.2);
+}
+
+.collecteur-mode .card {
+    border-radius: 20px;
+    box-shadow: var(--shadow-light);
+    border: none;
+    overflow: visible !important;
+}
+
+.collecteur-mode .btn {
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    border: none;
+}
+
+.collecteur-mode .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-medium);
+}
+
+.collecteur-mode .btn-lg {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 15px 30px;
+}
+
+/* Bouton principal de recensement avec nouveau style */
+.btn-recenser {
+    background: var(--success-gradient);
+    border: none;
+    color: white;
+    box-shadow: 0 6px 20px rgba(17, 153, 142, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: visible !important;
+}
+
+.btn-recenser::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-recenser:hover::before {
+    left: 100%;
+}
+
+.btn-recenser:hover {
+    background: linear-gradient(135deg, #0d7377 0%, #2fb344 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(17, 153, 142, 0.4);
+}
+
+/* Boutons flottants avec nouvelles couleurs */
+.floating-actions {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.floating-actions .btn {
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-medium);
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.floating-actions .btn-primary {
+    background: var(--success-gradient);
+}
+
+.floating-actions .btn-success {
+    background: var(--info-gradient);
+}
+
+.floating-actions .btn:hover {
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: var(--shadow-heavy);
+}
+
+.floating-actions .btn .small {
+    font-size: 0.7rem;
+    margin-top: 2px;
+    line-height: 1;
+}
+
+/* Stats cards avec nouvelles couleurs */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-bottom: 35px;
+}
+
+.stat-card {
+    color: white;
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: var(--shadow-light);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card:nth-child(1) {
+    background: var(--primary-gradient);
+}
+
+.stat-card:nth-child(2) {
+    background: var(--success-gradient);
+}
+
+.stat-card:nth-child(3) {
+    background: var(--info-gradient);
+}
+
+.stat-card:nth-child(4) {
+    background: var(--warning-gradient);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--shadow-heavy);
+}
+
+.stat-card:hover::before {
+    top: -30%;
+    right: -30%;
+}
+
+.stat-card .stat-icon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    opacity: 0.9;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stat-card .stat-label {
+    font-size: 1rem;
+    opacity: 0.95;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Cards avec bordures colorées */
+.border-primary {
+    border: 3px solid transparent !important;
+    background: linear-gradient(white, white) padding-box, var(--primary-gradient) border-box;
+}
+
+.card-header.bg-primary {
+    background: var(--primary-gradient) !important;
+    border: none;
+    color: white;
+    font-weight: 600;
+}
+
+/* Boutons d'action avec nouvelles couleurs */
+.btn-success {
+    background: var(--success-gradient) !important;
+    border: none;
+}
+
+.btn-info {
+    background: var(--info-gradient) !important;
+    border: none;
+}
+
+.btn-secondary {
+    background: var(--dark-gradient) !important;
+    border: none;
+}
+
+.btn-warning {
+    background: var(--warning-gradient) !important;
+    border: none;
+}
+
+/* Animation pour les boutons */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 6px 20px rgba(17, 153, 142, 0.3);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 8px 30px rgba(17, 153, 142, 0.5);
+    }
+}
+
+.btn-recenser {
+    animation: pulse-glow 3s infinite;
+}
+
+.btn-recenser:hover {
+    animation: none;
+}
+
+.floating-actions .btn {
+    animation: float 3s ease-in-out infinite;
+}
+
+.floating-actions .btn:nth-child(2) {
+    animation-delay: 0.5s;
+}
+
+/* Amélioration des alertes */
+.alert {
+    border-radius: 15px;
+    border: none;
+    box-shadow: var(--shadow-light);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%);
+    border-left: 4px solid #11998e;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.1) 0%, rgba(0, 242, 254, 0.1) 100%);
+    border-left: 4px solid #4facfe;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%);
+    border-left: 4px solid #f093fb;
+}
+
+/* Responsive design amélioré */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+    
+    .stat-card {
+        padding: 25px 20px;
+    }
+    
+    .stat-card .stat-number {
+        font-size: 2rem;
+    }
+    
+    .stat-card .stat-icon {
+        font-size: 2.5rem;
+    }
+    
+    .collecteur-mode .btn-lg {
+        font-size: 1rem;
+        padding: 12px 20px;
+    }
+    
+    .btn-recenser {
+        font-size: 1.1rem;
+        padding: 12px 25px;
+    }
+    
+    .floating-actions .btn {
+        width: 65px;
+        height: 65px;
+    }
+}
+
+@media (max-width: 576px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .floating-actions {
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .floating-actions .btn {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .btn-recenser {
+        font-size: 1rem;
+        padding: 10px 20px;
+    }
+    
+    .stat-card .stat-number {
+        font-size: 1.8rem;
+    }
+}
+
+/* Amélioration de la lisibilité */
+.text-large {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.text-emphasis {
+    color: #667eea;
+    font-weight: 600;
+}
+
+/* Effets hover pour les cartes */
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-medium);
+    transition: all 0.3s ease;
+}
+
+/* Amélioration des tableaux */
+.table {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+}
+
+.table thead th {
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.05);
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+/* Badges avec nouvelles couleurs */
+.badge {
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: 500;
+}
+
+.bg-info {
+    background: var(--info-gradient) !important;
+}
+
+.bg-success {
+    background: var(--success-gradient) !important;
+}
+
+.bg-warning {
+    background: var(--warning-gradient) !important;
+}
+
+.bg-secondary {
+    background: var(--dark-gradient) !important;
+}
+
+/* Classes pour les en-têtes avec dégradés */
+.bg-info-gradient {
+    background: var(--info-gradient) !important;
+    border-radius: 20px 20px 0 0;
+}
+
+.bg-success-gradient {
+    background: var(--success-gradient) !important;
+    border-radius: 20px 20px 0 0;
+}
+
+.bg-primary-gradient {
+    background: var(--primary-gradient) !important;
+    border-radius: 20px 20px 0 0;
+}
+
+.bg-warning-gradient {
+    background: var(--warning-gradient) !important;
+    border-radius: 20px 20px 0 0;
+} 
