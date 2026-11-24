@@ -49,14 +49,7 @@ jobs:
         run: |
           DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
           [ -z "$DEPLOY_PATH" ] && DEPLOY_PATH="/var/www/sicofil"
-          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd $DEPLOY_PATH && php -v && (composer install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || true) && (php artisan migrate --force 2>/dev/null || true) && (php artisan config:cache 2>/dev/null || true) && (php artisan route:cache 2>/dev/null || true) && (php artisan view:cache 2>/dev/null || true)"
-            php -v
-            composer install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || true
-            php artisan migrate --force 2>/dev/null || true
-            php artisan config:cache 2>/dev/null || true
-            php artisan route:cache 2>/dev/null || true
-            php artisan view:cache 2>/dev/null || true
-          REMOTE
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "cd $DEPLOY_PATH && composer install --no-dev --optimize-autoloader --no-interaction && php artisan migrate --force && php artisan storage:link && php artisan config:cache && php artisan route:cache && php artisan view:cache"
 
       - name: Cleanup SSH key
         if: always()
