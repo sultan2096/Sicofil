@@ -1323,10 +1323,10 @@ Route::prefix('contribuable')->name('contribuable.')->group(function () {
 */
 use App\Http\Controllers\WebhookController;
 
-Route::prefix('webhooks')->name('webhooks.')->group(function () {
-    Route::post('/wave', [WebhookController::class, 'waveWebhook'])->name('wave');
-    Route::post('/orange-money', [WebhookController::class, 'orangeMoneyWebhook'])->name('orange_money');
-    Route::post('/free-money', [WebhookController::class, 'freeMoneyWebhook'])->name('free_money');
+Route::prefix('webhooks')->group(function () {
+    Route::post('/wave', [WebhookController::class, 'waveWebhook']);
+    Route::post('/orange-money', [WebhookController::class, 'orangeMoneyWebhook']);
+    Route::post('/free-money', [WebhookController::class, 'freeMoneyWebhook']);
 });
 
 /*
