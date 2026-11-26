@@ -23,6 +23,14 @@ use App\Http\Controllers\CarteController;
 use App\Http\Controllers\CommuneController;
 use App\Http\Controllers\HealthController;
 
+// Sécurité production : les routes de test/debug renvoient 404 hors environnement local.
+// Enregistrées en premier pour prendre le pas sur les définitions plus bas dans ce fichier.
+if (!app()->environment('local')) {
+    Route::any('/{testPath}', function () {
+        abort(404);
+    })->where('testPath', '(test-.*|debug-.*|security-test)');
+}
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes

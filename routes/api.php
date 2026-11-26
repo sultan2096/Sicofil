@@ -54,4 +54,6 @@ Route::post('/webhooks/orange-money', [MobileMoneyWebhookController::class, 'ora
 Route::post('/webhooks/free-money', [MobileMoneyWebhookController::class, 'freeMoney'])->name('webhooks.free-money');
 
 // Webhook de test (local uniquement)
-Route::post('/webhooks/test', [MobileMoneyWebhookController::class, 'testWebhook'])->name('webhooks.test');
+if (app()->environment('local')) {
+    Route::post('/webhooks/test', [MobileMoneyWebhookController::class, 'testWebhook'])->name('webhooks.test');
+}
