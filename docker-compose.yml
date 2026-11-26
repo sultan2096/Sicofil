@@ -73,7 +73,7 @@ services:
 
   # MinIO (Stockage objets - photos, reçus)
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: sicofil-minio
     restart: unless-stopped
     environment:
